@@ -270,10 +270,14 @@ public class HttpClient4Test {
     /**
      * MIME type和Content-Type
      * 视频：https://www.bilibili.com/video/BV1W54y1s7BZ?p=11
+     * 参考文档：https://www.runoob.com/http/http-content-type.html
      */
     @Test
     void test11MIME() {
-        // TODO
+        // application/x-www-form-urlencoded
+        // multipart/form-data
+        // application/json
+        // text/plain
     }
 
     /**
