@@ -19,6 +19,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 /**
+ * 说明：配合《图解HTTP》一起看
+ *
  * @author liuyang(wx)
  * @since 2022/4/11
  */
@@ -135,7 +137,7 @@ public class HttpClient4Test {
             log.info("Status = {}", statusLine.getStatusCode());
             // 响应首部 Response Header
             Header[] allHeaders = closeableHttpResponse.getAllHeaders();
-            Arrays.asList(allHeaders).forEach(System.out::println);
+            Arrays.asList(allHeaders).forEach(h -> System.out.println(h.getName() + " = " + h.getValue()));
             // 实体首部 Content-Type
             Header contentType = entity.getContentType();
             log.info("Content-Type name = {}", contentType.getName());
