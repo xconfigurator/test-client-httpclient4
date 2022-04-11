@@ -4,7 +4,9 @@ import liuyang.testclienthttpclient4.common.utils.IdUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
+import org.apache.http.HttpHost;
 import org.apache.http.StatusLine;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -194,16 +196,34 @@ public class HttpClient4Test {
         } catch(Exception e) {
             log.error(e.getMessage(), e);
         }
-        // TODO
     }
 
     /**
-     * 设置访问代理
+     * 设置访问代理 -> 防止被反爬虫程序禁掉
      * 视频：https://www.bilibili.com/video/BV1W54y1s7BZ?p=9
      */
     @Test
-    void test09() {
-        // TODO
+    void test09Proxy() {
+        String url = "https://www.baidu.com";
+        HttpGet httpGet = new HttpGet(url);
+        // /////////////////////////////////////////////////////////
+        // 代理 begin
+        HttpHost proxy = new HttpHost("221.122.91.65",  80);// 免费或者有偿获取的IP http://www.66ip.cn/
+        RequestConfig restConfig = RequestConfig.custom().setProxy(proxy).build();
+        httpGet.setConfig(restConfig);// 每个请求的配置会覆盖全局的配置
+        // 代理 end
+        // /////////////////////////////////////////////////////////
+        try (
+                CloseableHttpClient closeableHttpClient = HttpClients.createDefault();
+                CloseableHttpResponse closeableHttpResponse = closeableHttpClient.execute(httpGet);
+        ){
+            HttpEntity entity = closeableHttpResponse.getEntity();
+            String entityStr = EntityUtils.toString(entity, StandardCharsets.UTF_8);
+            log.info("entityStr = {}", entityStr);
+            EntityUtils.consume(entity);// 确保流关闭。
+        } catch(Exception e) {
+            log.error(e.getMessage(), e);
+        }
     }
 
     /**
@@ -212,7 +232,39 @@ public class HttpClient4Test {
      */
     @Test
     void test10Timeout() {
-        // TODO
+        String url = "https://github.com";// 你懂的。
+        HttpGet httpGet = new HttpGet(url);
+        // /////////////////////////////////////////////////////////
+        // 超时 begin
+        RequestConfig requestConfig = RequestConfig.custom()
+                // 1. 连接超时（完成TCP三次握手的时间上限） 单位毫秒 20220411 实测可观察到超时
+                // Connect to github.com:443 [github.com/20.205.243.166] failed: connect timed out
+                // org.apache.http.conn.ConnectTimeoutException: Connect to github.com:443 [github.com/20.205.243.166] failed: connect timed out
+                // Caused by: java.net.SocketTimeoutException: connect timed out
+                //.setConnectTimeout(1000)
+                .setConnectTimeout(5000)
+                // 2. 读取超时(表示从请求的网址处获得相应数据的时间间隔) 20220411 复现
+                // 可以通过连接一个定制的Controller，在Controller中Sleep超过超时的时间，则触发该阈值。
+                // Read timed out
+                // java.net.SocketTimeoutException: Read timed out
+                .setSocketTimeout(5000)
+                // 3. 设置从连接池中获取连接的超时时间
+                .setConnectionRequestTimeout(5000)
+                .build();
+        httpGet.setConfig(requestConfig);
+        // 超时 end
+        // /////////////////////////////////////////////////////////
+        try (
+                CloseableHttpClient closeableHttpClient = HttpClients.createDefault();
+                CloseableHttpResponse closeableHttpResponse = closeableHttpClient.execute(httpGet);
+        ){
+            HttpEntity entity = closeableHttpResponse.getEntity();
+            String entityStr = EntityUtils.toString(entity, StandardCharsets.UTF_8);
+            log.info("entityStr = {}", entityStr);
+            EntityUtils.consume(entity);// 确保流关闭。
+        } catch(Exception e) {
+            log.error(e.getMessage(), e);
+        }
     }
 
     /**
