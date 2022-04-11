@@ -12,6 +12,7 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import org.junit.jupiter.api.Test;
 
+import java.io.FileOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
@@ -154,6 +155,45 @@ public class HttpClient4Test {
      */
     @Test
     void test08Images() {
+        String url = "https://i0.hdslb.com/bfs/archive/ca375eb31fa90b8e23b88ed3433c2f60de1c2e6e.png";
+        HttpGet httpGet = new HttpGet(url);
+        try (
+                CloseableHttpClient closeableHttpClient = HttpClients.createDefault();
+                CloseableHttpResponse closeableHttpResponse = closeableHttpClient.execute(httpGet);
+        ){
+            HttpEntity entity = closeableHttpResponse.getEntity();
+            // /////////////////////////////////////////////////////////
+            // 图片 begin
+            // 1. 处理保存到本地的文件后缀
+            String contentType = entity.getContentType().getValue();
+            String suffix = ".jpg";
+            if (contentType.contains("jpg") || contentType.contains("jpeg")) {
+                suffix = ".jpg";
+            }
+            if (contentType.contains("bmp") || contentType.contains("bitmap")) {
+                suffix = ".bmp";
+            }
+            if (contentType.contains("png")) {
+                suffix = ".png";
+            }
+            if (contentType.contains("gif")) {
+                suffix = ".gif";
+            }
+            // 2. 处理图片本身
+            byte[] bytes = EntityUtils.toByteArray(entity);
+            String path = "d:/" + "foo_" + System.currentTimeMillis() + suffix;
+            FileOutputStream fos = new FileOutputStream(path);
+            fos.write(bytes);
+            fos.close();
+            // 图片 end
+            // /////////////////////////////////////////////////////////
+
+            //String entityStr = EntityUtils.toString(entity, StandardCharsets.UTF_8);
+            //log.info("entityStr = {}", entityStr);
+            EntityUtils.consume(entity);// 确保流关闭。
+        } catch(Exception e) {
+            log.error(e.getMessage(), e);
+        }
         // TODO
     }
 
