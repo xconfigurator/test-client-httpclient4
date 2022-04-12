@@ -3,6 +3,7 @@ package liuyang.testclienthttpclient4.modules.apache.httpclient4;
 import com.google.gson.Gson;
 import liuyang.testclienthttpclient4.common.utils.IdUtils;
 import liuyang.testclienthttpclient4.modules.apache.httpclient4.dto.UserDTO;
+import liuyang.testclienthttpclient4.modules.apache.httpclient4.utils.HttpClientUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.*;
 import org.apache.http.client.config.RequestConfig;
@@ -469,9 +470,18 @@ public class HttpClient4Test {
      * 视频：https://www.bilibili.com/video/BV1W54y1s7BZ?p=16
      */
     @Test
-    void test16ConnectionPool() {
-        // TODO
+    void test16HttpClientUtil() {
+        //String s = HttpClientUtil.postJSON("http://localhost/test-client-httpclient4/test3", null);// {"msg":"Server ERROR!","code":500}
+        //String s = HttpClientUtil.postJSON("http://localhost/test-client-httpclient4/test3", "");// {"msg":"Server ERROR!","code":500}
 
+        UserDTO userDTO = new UserDTO();
+        userDTO.setId(IdUtils.nextTaskId());
+        userDTO.setUsername("liuyang");
+        userDTO.setInfo("foo test! 中文");
+        userDTO.setD(1.1d);
+        userDTO.setBd(new BigDecimal("1234582478124732847219072183271") );
+        String s = HttpClientUtil.postJSON("http://localhost/test-client-httpclient4/test3", userDTO);
+        System.out.println(s);
     }
 
 }
