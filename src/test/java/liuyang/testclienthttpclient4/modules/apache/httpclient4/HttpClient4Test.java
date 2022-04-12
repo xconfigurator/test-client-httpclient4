@@ -1,16 +1,19 @@
 package liuyang.testclienthttpclient4.modules.apache.httpclient4;
 
+import com.google.gson.Gson;
 import liuyang.testclienthttpclient4.common.utils.IdUtils;
+import liuyang.testclienthttpclient4.modules.apache.httpclient4.dto.UserDTO;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.http.Header;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.StatusLine;
+import org.apache.http.*;
 import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 import org.junit.jupiter.api.Test;
 
@@ -19,7 +22,10 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
+import java.util.List;
 
 /**
  * 说明：配合《图解HTTP》一起看
@@ -229,6 +235,7 @@ public class HttpClient4Test {
     /**
      * 连接超时和读取超时
      * 视频：https://www.bilibili.com/video/BV1W54y1s7BZ?p=10
+     * 重点：三种超时
      */
     @Test
     void test10Timeout() {
@@ -285,21 +292,81 @@ public class HttpClient4Test {
      * 视频：https://www.bilibili.com/video/BV1W54y1s7BZ?p=12
      *
      * POST表单
-     * enctype="application/x-www-form-urlencoded"
+     * content-type : application/x-www-form-urlencoded; charset=UTF-8 （HttpClient在使用UrlEncodedFormEntity的时候会默认添加，所以不需要显式设置）
+     *
+     * 关键点：UrlEncodedFormEntity
      */
     @Test
     void test12PostForm() {
-        // TODO
-
+        String url = "http://localhost/test-client-httpclient4/test2";
+        HttpPost httpPost = new HttpPost(url);
+        //httpPost.addHeader("Content-Type", "application/x-www-form-urlencoded; charset=GBK");// 不设置也可, 但设置了就以这个为准。
+        // /////////////////////////////////////////////////////////
+        // 给Post对象设置参数 begin
+        List<NameValuePair> nameValuePairs = new ArrayList<>();
+        nameValuePairs.add(new BasicNameValuePair("id", IdUtils.nextTaskId()));
+        nameValuePairs.add(new BasicNameValuePair("username", "liuyang"));
+        nameValuePairs.add(new BasicNameValuePair("info", "foo test! 中文"));
+        nameValuePairs.add(new BasicNameValuePair("d", "1.1"));// 注意观察服务器端double
+        nameValuePairs.add(new BasicNameValuePair("bd", "1234582478124732847219072183271"));// 注意观察服务器端BigDecimal
+        UrlEncodedFormEntity urlEncodedFormEntity = new UrlEncodedFormEntity(nameValuePairs, StandardCharsets.UTF_8);
+        httpPost.setEntity(urlEncodedFormEntity);
+        // 给Post对象设置参数 end
+        // /////////////////////////////////////////////////////////
+        try (
+                CloseableHttpClient closeableHttpClient = HttpClients.createDefault();
+                CloseableHttpResponse closeableHttpResponse = closeableHttpClient.execute(httpPost);
+        ){
+            HttpEntity entity = closeableHttpResponse.getEntity();
+            String entityStr = EntityUtils.toString(entity, StandardCharsets.UTF_8);
+            log.info("entityStr = {}", entityStr);
+            EntityUtils.consume(entity);// 确保流关闭。
+        } catch(Exception e) {
+            log.error(e.getMessage(), e);
+        }
     }
 
     /**
      * 发送json类型的post请求
      * 视频：https://www.bilibili.com/video/BV1W54y1s7BZ?p=13
+     *
+     * POST JSON
+     * content-type : application/json; charset=UTF-8 （必须设置）
+     * 关键点：StringEntity
      */
     @Test
-    void test13PostJSON() {
-        // TODO
+    void test13PostJSON() throws UnsupportedEncodingException {
+        String url = "http://localhost/test-client-httpclient4/test3";
+        HttpPost httpPost = new HttpPost(url);
+        // 注意要指定！
+        httpPost.addHeader("Content-Type", "application/json; charset=UTF-8");// 不设就报错！！ 因为默认类型是：Content type 'text/plain;charset=UTF-8'
+        // /////////////////////////////////////////////////////////
+        // 给Post对象设置参数 begin
+        UserDTO userDTO = new UserDTO();
+        userDTO.setId(IdUtils.nextTaskId());
+        userDTO.setUsername("liuyang");
+        userDTO.setInfo("foo test! 中文");
+        userDTO.setD(1.1d);
+        userDTO.setBd(new BigDecimal("1234582478124732847219072183271") );
+        String jsonStr = new Gson().toJson(userDTO);
+        StringEntity stringEntity = new StringEntity(jsonStr, StandardCharsets.UTF_8);
+        httpPost.setEntity(stringEntity);
+        // 对比Form
+        //UrlEncodedFormEntity urlEncodedFormEntity = new UrlEncodedFormEntity(nameValuePairs, StandardCharsets.UTF_8);
+        //httpPost.setEntity(urlEncodedFormEntity);
+        // 给Post对象设置参数 end
+        // /////////////////////////////////////////////////////////
+        try (
+                CloseableHttpClient closeableHttpClient = HttpClients.createDefault();
+                CloseableHttpResponse closeableHttpResponse = closeableHttpClient.execute(httpPost);
+        ){
+            HttpEntity entity = closeableHttpResponse.getEntity();
+            String entityStr = EntityUtils.toString(entity, StandardCharsets.UTF_8);
+            log.info("entityStr = {}", entityStr);
+            EntityUtils.consume(entity);// 确保流关闭。
+        } catch(Exception e) {
+            log.error(e.getMessage(), e);
+        }
     }
 
     /**
@@ -312,6 +379,7 @@ public class HttpClient4Test {
     @Test
     void test14FileUpload() {
         // TODO
+
     }
 
     /**
@@ -321,6 +389,7 @@ public class HttpClient4Test {
     @Test
     void test15Https() {
         // TODO
+
     }
 
     /**
@@ -330,6 +399,7 @@ public class HttpClient4Test {
     @Test
     void test16ConnectionPool() {
         // TODO
+
     }
 
 }
