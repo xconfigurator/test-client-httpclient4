@@ -10,18 +10,37 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.config.Registry;
+import org.apache.http.config.RegistryBuilder;
+import org.apache.http.conn.socket.ConnectionSocketFactory;
+import org.apache.http.conn.socket.PlainConnectionSocketFactory;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.message.BasicNameValuePair;
+
+import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.http.ssl.SSLContexts;
+import org.apache.http.ssl.TrustStrategy;
 import org.apache.http.util.EntityUtils;
+import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 
+import javax.net.ssl.SSLContext;
 import java.io.FileOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -348,7 +367,10 @@ public class HttpClient4Test {
         userDTO.setInfo("foo test! 中文");
         userDTO.setD(1.1d);
         userDTO.setBd(new BigDecimal("1234582478124732847219072183271") );
+        // Google Gson
         String jsonStr = new Gson().toJson(userDTO);
+        // Jackson JSONObject put toString()
+        // FastJson JSON.toJSONString()
         StringEntity stringEntity = new StringEntity(jsonStr, StandardCharsets.UTF_8);
         httpPost.setEntity(stringEntity);
         // 对比Form
@@ -375,21 +397,71 @@ public class HttpClient4Test {
      *
      * POST文件
      * enctype="multipart/form-data"
+     *
+     * 注：这里演示的是使用HTTP的文件上传，使用FTP的文件上传参考其他TODO代码。
+     *
      */
     @Test
     void test14FileUpload() {
         // TODO
-
     }
 
     /**
      * 为何要绕过https安全认证
      * 视频：https://www.bilibili.com/video/BV1W54y1s7BZ?p=15
+     *
+     * 应对：自签名场景
+     * 方案1：配置证书
+     * 方案2：配置httpClient绕过https安全认证
+     *
+     * 这里显示绕过的方案
      */
     @Test
-    void test15Https() {
-        // TODO
+    void test15Https() throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException {
+        // 对比test-client/HttpClientSSLTest
+        // /////////////////////////////////////////////////////////
+        // 主要就是定制HttpClient
+        // 注意：这个操作里，不需要在客户端导入证书！
+        Registry<ConnectionSocketFactory> registry = RegistryBuilder.<ConnectionSocketFactory>create()
+                .register("http", PlainConnectionSocketFactory.INSTANCE)
+                .register("https",skipValidationHttpsConnectionSocketFactory())
+                .build();
+        PoolingHttpClientConnectionManager poolingHttpClientConnectionManager = new PoolingHttpClientConnectionManager(registry);
+        // SSL第四步：创建http请求
+        //CloseableHttpClient closeableHttpClient = HttpClients.custom().setConnectionManager(poolingHttpClientConnectionManager).build();
+        // 对比一下普通http的
+        // CloseableHttpClient httpClient = HttpClients.createDefault();
+        // /////////////////////////////////////////////////////////
 
+        String url = "https://www.baidu.com";// TODO 尝试一下自签名的， 貌似百度这种有合规签名的网站，无论客户端如何指定trust，都能访问通。
+        HttpPost httpPost = new HttpPost(url);
+        try (
+                CloseableHttpClient closeableHttpClient = HttpClients.custom().setConnectionManager(poolingHttpClientConnectionManager).build();
+                CloseableHttpResponse closeableHttpResponse = closeableHttpClient.execute(httpPost);
+                ) {
+            HttpEntity entity = closeableHttpResponse.getEntity();
+            String entityStr = EntityUtils.toString(entity, StandardCharsets.UTF_8);
+            log.info("entityStr = {}", entityStr);
+            EntityUtils.consume(entity);// 确保流关闭。
+        } catch(Exception e) {
+            log.error(e.getMessage(), e);
+        }
+    }
+
+    private ConnectionSocketFactory skipValidationHttpsConnectionSocketFactory() throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException {
+        SSLContextBuilder sslContextBuilder = new SSLContextBuilder();
+        SSLContext sslContext = sslContextBuilder.loadTrustMaterial(null, new TrustStrategy() {
+            @Override
+            public boolean isTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+                //return false;
+                return true;
+            }
+        }).build();
+        return new SSLConnectionSocketFactory(
+                sslContext
+                , new String[] {"SSLv2Hello", "SSLv3", "TLSv1", "TLSv1.1", "TLSv1.2"}
+                , null
+                , NoopHostnameVerifier.INSTANCE);
     }
 
     /**
