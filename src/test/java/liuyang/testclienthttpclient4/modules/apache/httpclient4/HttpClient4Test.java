@@ -17,11 +17,17 @@ import org.apache.http.conn.socket.ConnectionSocketFactory;
 import org.apache.http.conn.socket.PlainConnectionSocketFactory;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.entity.mime.HttpMultipartMode;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.entity.mime.content.FileBody;
+import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.apache.http.message.BasicHeader;
 import org.apache.http.message.BasicNameValuePair;
 
 import org.apache.http.ssl.SSLContextBuilder;
@@ -32,6 +38,8 @@ import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 
 import javax.net.ssl.SSLContext;
+import javax.swing.text.AbstractDocument;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
@@ -401,10 +409,75 @@ public class HttpClient4Test {
      *
      * 注：这里演示的是使用HTTP的文件上传，使用FTP的文件上传参考其他TODO代码。
      *
+     * 关键点：MultipartEntityBuilder，来自httpmime (不在httpclient依赖包)，见pom.xml
      */
     @Test
     void test14FileUpload() {
-        // TODO
+        String url = "http://localhost/test-client-httpclient4/test4";
+        HttpPost httpPost = new HttpPost(url);
+        //httpPost.addHeader("Content-Type", "application/multipart/form-data; charset=UTF-8");// 不设置也可, 但设置了就以这个为准。
+
+        /*
+        // 在这写是没用的！
+        // /////////////////////////////////////////////////////////
+        // 给Post对象设置参数 begin
+        List<NameValuePair> nameValuePairs = new ArrayList<>();
+        nameValuePairs.add(new BasicNameValuePair("id", IdUtils.nextTaskId()));
+        nameValuePairs.add(new BasicNameValuePair("username", "liuyang"));
+        nameValuePairs.add(new BasicNameValuePair("info", "foo test! 中文"));
+        nameValuePairs.add(new BasicNameValuePair("d", "1.1"));// 注意观察服务器端double
+        nameValuePairs.add(new BasicNameValuePair("bd", "1234582478124732847219072183271"));// 注意观察服务器端BigDecimal
+        UrlEncodedFormEntity urlEncodedFormEntity = new UrlEncodedFormEntity(nameValuePairs, StandardCharsets.UTF_8);
+        // 注意：配合File一起发送，需要
+        urlEncodedFormEntity.setContentType(new BasicHeader("Content-Type", "application/x-www-form-urlencoded; charset=GBK"));
+        httpPost.setEntity(urlEncodedFormEntity);
+        // 给Post对象设置参数 end
+        // /////////////////////////////////////////////////////////
+         */
+
+        // /////////////////////////////////////////////////////////
+        // 文件 begin
+        // MultipartEntityBuilder
+        MultipartEntityBuilder multipartEntityBuilder = MultipartEntityBuilder.create();
+        multipartEntityBuilder.setCharset(Consts.UTF_8);
+        // multipartEntityBuilder.setContentType(ContentType.MULTIPART_FORM_DATA);// 看看值就知道了，这样会有中文乱码！
+        multipartEntityBuilder.setContentType(ContentType.create("multipart/form-data", Consts.UTF_8));
+        multipartEntityBuilder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
+        multipartEntityBuilder.addPart("fileName", new FileBody(new File("d:/foo_1649686014810.png")));
+        multipartEntityBuilder.addBinaryBody("fileName", new File("d:/foo_1649686136526.png")); // 记不住参数，Ctrl + P 有惊喜！
+        // 其他参数传递
+        /*
+        multipartEntityBuilder.addTextBody("foo", "bar");                               // UserDTO中没有
+        multipartEntityBuilder.addTextBody("id", IdUtils.nextTaskId());                      // UserDTO.id
+        multipartEntityBuilder.addTextBody("username", "liuyang");                      // UserDTO.username
+        // 普通字段，如果含有中文，不可以通过addTextBody方法，否则就算设置对了ContentType，依然会乱码。
+        multipartEntityBuilder.addTextBody("info", "foo test! 中文");                    // UserDTO.info 乱码！-> setContentType解决
+        multipartEntityBuilder.addTextBody("d", "1.1");                                 // UserDTO.d
+        multipartEntityBuilder.addTextBody("bd", "1234582478124732847219072183271");    // UserDTO.bd
+        */
+        multipartEntityBuilder.addPart("foo", new StringBody("bar", ContentType.create("text/plain", Consts.UTF_8)));               // UserDTO中没有
+        multipartEntityBuilder.addPart("id", new StringBody(IdUtils.nextTaskId(), ContentType.create("text/plain", Consts.UTF_8)));      // UserDTO.id
+        multipartEntityBuilder.addPart("username", new StringBody("liuyang", ContentType.create("text/plain", Consts.UTF_8)));       // UserDTO.username
+        // 普通字段，如果含有中文，不可以通过addTextBody方法，否则就算设置对了ContentType，依然会乱码。
+        multipartEntityBuilder.addPart("info", new StringBody("foo 中文！", ContentType.create("text/plain", Consts.UTF_8)));        // UserDTO.info 乱码！-> setContentType解决
+        multipartEntityBuilder.addPart("d", new StringBody("1.1", ContentType.create("text/plain", Consts.UTF_8)));                                 // UserDTO.d
+        multipartEntityBuilder.addPart("bd", new StringBody("1234582478124732847219072183271", ContentType.create("text/plain", Consts.UTF_8)));    // UserDTO.bd
+        HttpEntity httpEntity = multipartEntityBuilder.build();
+        httpPost.setEntity(httpEntity);
+        // 文件 end
+        // /////////////////////////////////////////////////////////
+
+        try (
+                CloseableHttpClient closeableHttpClient = HttpClients.createDefault();
+                CloseableHttpResponse closeableHttpResponse = closeableHttpClient.execute(httpPost);
+        ){
+            HttpEntity entity = closeableHttpResponse.getEntity();
+            String entityStr = EntityUtils.toString(entity, StandardCharsets.UTF_8);
+            log.info("entityStr = {}", entityStr);
+            EntityUtils.consume(entity);// 确保流关闭。
+        } catch(Exception e) {
+            log.error(e.getMessage(), e);
+        }
     }
 
     /**

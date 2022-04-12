@@ -21,7 +21,6 @@ import org.apache.http.message.BasicHeader;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.http.ssl.TrustStrategy;
 import org.apache.http.util.EntityUtils;
-import org.springframework.util.StringUtils;
 
 import javax.net.ssl.SSLContext;
 import java.nio.charset.StandardCharsets;
