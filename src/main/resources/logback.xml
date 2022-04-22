@@ -4,7 +4,7 @@
 
     <!-- 日志级别 本项目 -->
     <!-- <logger name="cn.edu.hebau.liuyang" level="TRACE"/> -->
-    <logger name="liuyang.testclienthttpclient4" level="info"/>
+    <logger name="liuyang.testclienthttpclient4" level="debug"/>
     <logger name="org.apache" level="info"/>
 
     <!-- 日志样式及输出位置 -->

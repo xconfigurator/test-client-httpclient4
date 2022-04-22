@@ -64,6 +64,9 @@ import java.util.List;
 @Slf4j
 public class HttpClient4Test {
 
+    private static final int CONNECT_TIMEOUT = 5000;// TCP握手超时
+    private static final int SOCKET_TIMEOUT = 60000;// 请求响应超时
+
     /**
      * Get请求 ，无参
      * 视频：https://www.bilibili.com/video/BV1W54y1s7BZ?p=4
