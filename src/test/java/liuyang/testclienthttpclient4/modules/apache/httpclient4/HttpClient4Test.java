@@ -57,6 +57,7 @@ import java.util.List;
 
 /**
  * 说明：配合《图解HTTP》一起看
+ * 视频：https://www.bilibili.com/video/BV1W54y1s7BZ
  *
  * @author liuyang(wx)
  * @since 2022/4/11
