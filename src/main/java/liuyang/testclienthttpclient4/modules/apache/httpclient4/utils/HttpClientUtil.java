@@ -21,6 +21,8 @@ import org.apache.http.message.BasicHeader;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.http.ssl.TrustStrategy;
 import org.apache.http.util.EntityUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLContext;
 import java.nio.charset.StandardCharsets;
@@ -36,16 +38,21 @@ import java.util.List;
  * 使用连接池(需要配合容器)
  * 对Apache HttpClient 4.5.x 封装
  *
+ * 这一版本序列化通过
+ *
  * 视频：https://www.bilibili.com/video/BV1W54y1s7BZ?p=16
  * @author liuyang(wx)
  * @since 2022/4/12 postJSON ok
+ *
  */
-@Slf4j
+//@Slf4j
 public class HttpClientUtil {
-    private static final int MAX_SIZE = 50;
-    private static final int MAX_PER_ROUTE_SIZE = 50;
-    private static final int TIME_OUT_TCP = 5000;// TCP连接建立时间
-    private static final int TIME_OUT_REQUEST = 5000;// 获取响应超时
+    private static final Logger LOGGER = LoggerFactory.getLogger(HttpClientUtil.class);
+
+    private static final int MAX_SIZE = 50;                     // 连接池最大连接数
+    private static final int MAX_PER_ROUTE_SIZE = 50;           // 每个路由默认有多少连接数
+    private static final int TIME_OUT_TCP = 5000;               // TCP连接建立时间
+    private static final int TIME_OUT_REQUEST = 5000;           // 获取响应超时
     private static final int TIME_OUT_GET_CONN_FROM_POOL = 5000;// 从连接池中获取连接超时
 
     private static HttpClientBuilder httpClientBuilder = HttpClients.custom();
@@ -59,11 +66,15 @@ public class HttpClientUtil {
                     .build();
 
         } catch (KeyStoreException e) {
-            e.printStackTrace();
+            //e.printStackTrace();
+            //log.error(e.getMessage(), e);// static中，log可能未被初始化
+            LOGGER.error(e.getMessage(), e);
         } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
+            //e.printStackTrace();
+            LOGGER.error(e.getMessage(), e);
         } catch (KeyManagementException e) {
-            e.printStackTrace();
+            //e.printStackTrace();
+            LOGGER.error(e.getMessage(), e);
         }
         // 连接池
         PoolingHttpClientConnectionManager poolingHttpClientConnectionManager = new PoolingHttpClientConnectionManager(registry);
@@ -83,6 +94,22 @@ public class HttpClientUtil {
         httpClientBuilder.setDefaultHeaders(defaultHeaders);
     }
 
+    private static ConnectionSocketFactory skipValidationHttpsConnectionSocketFactory() throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException {
+        SSLContextBuilder sslContextBuilder = new SSLContextBuilder();
+        SSLContext sslContext = sslContextBuilder.loadTrustMaterial(null, new TrustStrategy() {
+            @Override
+            public boolean isTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
+                //return false;
+                return true;
+            }
+        }).build();
+        return new SSLConnectionSocketFactory(
+                sslContext
+                , new String[] {"SSLv2Hello", "SSLv3", "TLSv1", "TLSv1.1", "TLSv1.2"}
+                , null
+                , NoopHostnameVerifier.INSTANCE);
+    }
+
     public static String postJSON(String url, Object obj) {
 
         HttpPost httpPost = new HttpPost(url);
@@ -98,9 +125,15 @@ public class HttpClientUtil {
         ) {
             return EntityUtils.toString(response.getEntity());
         } catch (Exception e) {
-            log.error(e.getMessage(), e);
+            //log.error(e.getMessage(), e);
+            LOGGER.error(e.getMessage(), e);
             return null;
         }
+    }
+
+    public static <T> T postJSON(String url, Object obj, Class<T> returnClazz) {
+        // TODO
+        return null;
     }
 
     public static String postForm() {
@@ -111,21 +144,5 @@ public class HttpClientUtil {
     public static String postFile() {
         // TODO
         return null;
-    }
-
-    private static ConnectionSocketFactory skipValidationHttpsConnectionSocketFactory() throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException {
-        SSLContextBuilder sslContextBuilder = new SSLContextBuilder();
-        SSLContext sslContext = sslContextBuilder.loadTrustMaterial(null, new TrustStrategy() {
-            @Override
-            public boolean isTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
-                //return false;
-                return true;
-            }
-        }).build();
-        return new SSLConnectionSocketFactory(
-                sslContext
-                , new String[] {"SSLv2Hello", "SSLv3", "TLSv1", "TLSv1.1", "TLSv1.2"}
-                , null
-                , NoopHostnameVerifier.INSTANCE);
     }
 }

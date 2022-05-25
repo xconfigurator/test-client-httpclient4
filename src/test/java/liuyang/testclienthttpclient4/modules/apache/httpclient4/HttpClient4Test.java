@@ -548,6 +548,7 @@ public class HttpClient4Test {
      */
     @Test
     void test16HttpClientUtil() {
+        // 服务器项目是test-spring-boot-env
         //String s = HttpClientUtil.postJSON("http://localhost/test-client-httpclient4/test3", null);// {"msg":"Server ERROR!","code":500}
         //String s = HttpClientUtil.postJSON("http://localhost/test-client-httpclient4/test3", "");// {"msg":"Server ERROR!","code":500}
 
