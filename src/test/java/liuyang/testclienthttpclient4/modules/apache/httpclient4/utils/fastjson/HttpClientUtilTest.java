@@ -4,8 +4,8 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
-import org.springframework.test.web.reactive.server.WebTestClient;
 
 import java.util.Arrays;
 import java.util.List;
@@ -17,6 +17,37 @@ import java.util.List;
  */
 @Slf4j
 public class HttpClientUtilTest {
+
+    // db065523e7dc405e9f9c262673d08b26
+    // 7cd013d9b2874d70a2a11f0a460b870c
+    @Test
+    void test202206061845StopAll() {
+        StringBuilder url = new StringBuilder();
+        url.append("http://localhost/scheduler/stopAll");
+        String result = HttpClientUtil.get(url.toString());
+        log.info(result);
+    }
+
+    @Test
+    void test202206061835StopJob() {
+        StringBuilder url = new StringBuilder();
+        url.append("http://localhost/scheduler/stop");
+        url.append("?taskId=");
+        url.append("0ded3c0b3af44a018f502b9e2ea3693f");
+        String result = HttpClientUtil.get(url.toString());
+        log.info(result);
+    }
+
+    //@Test
+    @RepeatedTest(value = 4)
+    void test202206061834AddJob() {
+        StringBuilder url = new StringBuilder();
+        url.append("http://localhost/scheduler/add");
+        url.append("?delay=");
+        url.append(2000l);
+        String result = HttpClientUtil.get(url.toString());
+        log.info(result);
+    }
 
     @Test
     void test() {

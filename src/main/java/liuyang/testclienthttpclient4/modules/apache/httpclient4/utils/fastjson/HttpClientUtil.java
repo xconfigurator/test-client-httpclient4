@@ -1,8 +1,10 @@
 package liuyang.testclienthttpclient4.modules.apache.httpclient4.utils.fastjson;
 
 import org.apache.http.Header;
+import org.apache.http.HttpEntity;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
@@ -38,10 +40,11 @@ import java.util.List;
  * 2. 序列化反序列化组件依赖同包下的JsonUtil.java方便对Fastjson序列化/反序列化特性的统一配置。
  *
  * @author liuyang(wx)
- * @since 2022/5/25
+ * @since 2022/5/25 连接池、https、postJSON
+ *        2022/6/6  增加get方法
  */
 public class HttpClientUtil {
-    private static final Logger LOGGER = LoggerFactory.getLogger(HttpClientUtil.class);
+    private static final Logger log = LoggerFactory.getLogger(HttpClientUtil.class);
 
     private static final int MAX_SIZE = 50;                     // 连接池最大连接数
     private static final int MAX_PER_ROUTE_SIZE = 50;           // 每个路由默认有多少连接数
@@ -60,13 +63,13 @@ public class HttpClientUtil {
                         .build();
         } catch (KeyStoreException e) {
             //e.printStackTrace();
-            LOGGER.error(e.getMessage(), e);
+            log.error(e.getMessage(), e);
         } catch (NoSuchAlgorithmException e) {
             //e.printStackTrace();
-            LOGGER.error(e.getMessage(), e);
+            log.error(e.getMessage(), e);
         } catch (KeyManagementException e) {
             //e.printStackTrace();
-            LOGGER.error(e.getMessage(), e);
+            log.error(e.getMessage(), e);
         }
         // 连接池
         PoolingHttpClientConnectionManager poolingHttpClientConnectionManager = new PoolingHttpClientConnectionManager(registry);
@@ -112,11 +115,15 @@ public class HttpClientUtil {
         }
         try (
                 CloseableHttpClient closeableHttpClient = httpClientBuilder.build();
-                CloseableHttpResponse response = closeableHttpClient.execute(httpPost);
+                CloseableHttpResponse closeableHttpResponse = closeableHttpClient.execute(httpPost);
         ) {
-            return EntityUtils.toString(response.getEntity());
+            //return EntityUtils.toString(closeableHttpResponse.getEntity());
+            HttpEntity entity = closeableHttpResponse.getEntity();
+            String resp = EntityUtils.toString(entity, StandardCharsets.UTF_8);
+            EntityUtils.consume(entity);// 确保关闭流
+            return resp;
         } catch(Exception e) {
-            LOGGER.error(e.getMessage(), e);
+            log.error(e.getMessage(), e);
             return null;
         }
     }
@@ -124,4 +131,19 @@ public class HttpClientUtil {
     // TODO
     // 增加一个可以添加url参数的方法
 
+    public static String get(String url) {
+        HttpGet httpGet = new HttpGet(url);
+        try (
+                CloseableHttpClient closeableHttpClient = HttpClients.createDefault();
+                CloseableHttpResponse closeableHttpResponse = closeableHttpClient.execute(httpGet);
+        ){
+            HttpEntity entity = closeableHttpResponse.getEntity();
+            String resp = EntityUtils.toString(entity, StandardCharsets.UTF_8);
+            EntityUtils.consume(entity);// 确保流关闭。
+            return resp;
+        } catch (Exception e) {
+            log.error(e.getMessage(), e);
+            return null;
+        }
+    }
 }
