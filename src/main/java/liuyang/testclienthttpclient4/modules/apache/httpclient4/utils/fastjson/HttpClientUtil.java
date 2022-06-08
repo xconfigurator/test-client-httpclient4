@@ -42,6 +42,7 @@ import java.util.List;
  * @author liuyang(wx)
  * @since 2022/5/25 连接池、https、postJSON
  *        2022/6/6  增加get方法
+ *        2022/6/8  测试发现如果关闭连接，则会导致连接池也关闭。目前方案：考虑暂时注销连接池。
  */
 public class HttpClientUtil {
     private static final Logger log = LoggerFactory.getLogger(HttpClientUtil.class);
@@ -72,10 +73,12 @@ public class HttpClientUtil {
             log.error(e.getMessage(), e);
         }
         // 连接池
+        /*
         PoolingHttpClientConnectionManager poolingHttpClientConnectionManager = new PoolingHttpClientConnectionManager(registry);
         poolingHttpClientConnectionManager.setMaxTotal(MAX_SIZE);// 连接池最大连接数
         poolingHttpClientConnectionManager.setDefaultMaxPerRoute(MAX_PER_ROUTE_SIZE);// 每个路由默认有多少连接数
         httpClientBuilder.setConnectionManager(poolingHttpClientConnectionManager);
+        */
         // 连接超时
         RequestConfig requestConfig = RequestConfig.custom()
                 .setConnectTimeout(TIME_OUT_TCP)
