@@ -1,11 +1,14 @@
 package liuyang.testclienthttpclient4.modules.apache.httpclient4.utils.fastjson;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.client.utils.HttpClientUtils;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.conn.socket.ConnectionSocketFactory;
@@ -43,6 +46,8 @@ import java.util.List;
  * @since 2022/5/25 连接池、https、postJSON
  *        2022/6/6  增加get方法
  *        2022/6/8  测试发现如果关闭连接，则会导致连接池也关闭。目前方案：考虑暂时注销连接池。
+ *        2022/6/23 重新开启线程池，修正response关闭方式。
+ *        2022/7/15 根据SonaLint修改
  */
 public class HttpClientUtil {
     private static final Logger log = LoggerFactory.getLogger(HttpClientUtil.class);
@@ -52,6 +57,8 @@ public class HttpClientUtil {
     private static final int TIME_OUT_TCP = 5000;               // TCP连接建立时间
     private static final int TIME_OUT_REQUEST = 5000;           // 获取响应超时
     private static final int TIME_OUT_GET_CONN_FROM_POOL = 5000;// 从连接池中获取连接超时
+
+    private HttpClientUtil() {}
 
     private static HttpClientBuilder httpClientBuilder = HttpClients.custom();
     static {
@@ -73,12 +80,10 @@ public class HttpClientUtil {
             log.error(e.getMessage(), e);
         }
         // 连接池
-        /*
         PoolingHttpClientConnectionManager poolingHttpClientConnectionManager = new PoolingHttpClientConnectionManager(registry);
         poolingHttpClientConnectionManager.setMaxTotal(MAX_SIZE);// 连接池最大连接数
         poolingHttpClientConnectionManager.setDefaultMaxPerRoute(MAX_PER_ROUTE_SIZE);// 每个路由默认有多少连接数
         httpClientBuilder.setConnectionManager(poolingHttpClientConnectionManager);
-        */
         // 连接超时
         RequestConfig requestConfig = RequestConfig.custom()
                 .setConnectTimeout(TIME_OUT_TCP)
@@ -103,7 +108,7 @@ public class HttpClientUtil {
         }).build();
         return new SSLConnectionSocketFactory(
                 sslContext
-                , new String[] {"SSLv2Hello", "SSLv3", "TLSv1", "TLSv1.1", "TLSv1.2"}
+                , new String[] {"TLSv1.2"}
                 , null
                 , NoopHostnameVerifier.INSTANCE);
     }
@@ -116,10 +121,10 @@ public class HttpClientUtil {
             StringEntity stringEntity = new StringEntity(JsonUtil.toJSONString(obj), StandardCharsets.UTF_8);
             httpPost.setEntity(stringEntity);
         }
-        try (
-                CloseableHttpClient closeableHttpClient = httpClientBuilder.build();
-                CloseableHttpResponse closeableHttpResponse = closeableHttpClient.execute(httpPost);
-        ) {
+        CloseableHttpClient closeableHttpClient = httpClientBuilder.build();
+        CloseableHttpResponse closeableHttpResponse = null;
+        try {
+            closeableHttpResponse = closeableHttpClient.execute(httpPost);
             //return EntityUtils.toString(closeableHttpResponse.getEntity());
             HttpEntity entity = closeableHttpResponse.getEntity();
             String resp = EntityUtils.toString(entity, StandardCharsets.UTF_8);
@@ -128,18 +133,17 @@ public class HttpClientUtil {
         } catch(Exception e) {
             log.error(e.getMessage(), e);
             return null;
+        } finally {
+            HttpClientUtils.closeQuietly(closeableHttpResponse);
         }
     }
 
-    // TODO
-    // 增加一个可以添加url参数的方法
-
     public static String get(String url) {
         HttpGet httpGet = new HttpGet(url);
-        try (
-                CloseableHttpClient closeableHttpClient = HttpClients.createDefault();
-                CloseableHttpResponse closeableHttpResponse = closeableHttpClient.execute(httpGet);
-        ){
+        CloseableHttpClient closeableHttpClient = httpClientBuilder.build();
+        CloseableHttpResponse closeableHttpResponse = null;
+        try {
+            closeableHttpResponse = closeableHttpClient.execute(httpGet);
             HttpEntity entity = closeableHttpResponse.getEntity();
             String resp = EntityUtils.toString(entity, StandardCharsets.UTF_8);
             EntityUtils.consume(entity);// 确保流关闭。
@@ -147,6 +151,30 @@ public class HttpClientUtil {
         } catch (Exception e) {
             log.error(e.getMessage(), e);
             return null;
+        } finally {
+            HttpClientUtils.closeQuietly(closeableHttpResponse);
+        }
+    }
+
+    public static JSONObject get2(String url) {
+        HttpGet httpGet = new HttpGet(url);
+        CloseableHttpClient closeableHttpClient = httpClientBuilder.build();
+        CloseableHttpResponse closeableHttpResponse = null;
+        JSONObject jsonObject = null;
+        try {
+            closeableHttpResponse = closeableHttpClient.execute(httpGet);
+            HttpEntity entity = closeableHttpResponse.getEntity();
+            String resp = EntityUtils.toString(entity, StandardCharsets.UTF_8);
+            EntityUtils.consume(entity);// 确保流关闭。
+
+            jsonObject = JSON.parseObject(resp + "xx");
+
+            return jsonObject;
+        } catch (Exception e) {
+            log.error(e.getMessage(), e);
+            throw new RuntimeException("bar");
+        } finally {
+            HttpClientUtils.closeQuietly(closeableHttpResponse);
         }
     }
 }

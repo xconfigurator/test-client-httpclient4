@@ -3,10 +3,16 @@ package liuyang.testclienthttpclient4.modules.apache.httpclient4.utils.fastjson;
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import lombok.Data;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
+import javax.net.ssl.SSLEngine;
+import javax.net.ssl.SSLEngineResult;
+import javax.net.ssl.SSLException;
+import javax.net.ssl.SSLSession;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 
@@ -17,6 +23,40 @@ import java.util.List;
  */
 @Slf4j
 public class HttpClientUtilTest {
+
+    @Test
+    void test202206241107() {
+        StringBuilder url = new StringBuilder();
+        url.append("https://10.10.9.18:3002/requestService/operator/userlogin?udpID=123&Name=hssuser&Password=hssuser&isForceLogin=1");
+        JSONObject jsonObject = HttpClientUtil.get2(url.toString());
+        log.info("jsonObject {}", jsonObject);
+    }
+
+    @Test
+    void test202206230923() {
+        StringBuilder url = new StringBuilder();
+        url.append("https://10.10.9.18:3002/requestService/operator/userlogin?udpID=123&Name=hssuser&Password=hssuser&isForceLogin=1");
+        String result = HttpClientUtil.get(url.toString());
+        JSONObject jsonObject = null;
+        try {
+            jsonObject = JSON.parseObject(result + "xxx");
+        } catch(Exception e) {
+            log.error(e.getMessage(), e);
+            jsonObject = null;
+        }
+        log.info(result);
+        log.info("jsonObject {}", jsonObject);
+    }
+
+
+    @Test
+    void test202206230858() {
+        StringBuilder url = new StringBuilder();
+        url.append("https://www.baidu.com");
+        String result = HttpClientUtil.get(url.toString());
+        log.info(result);
+    }
+
 
     // db065523e7dc405e9f9c262673d08b26
     // 7cd013d9b2874d70a2a11f0a460b870c
