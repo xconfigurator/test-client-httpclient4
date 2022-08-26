@@ -48,6 +48,8 @@ import java.util.List;
  *        2022/6/8  测试发现如果关闭连接，则会导致连接池也关闭。目前方案：考虑暂时注销连接池。
  *        2022/6/23 重新开启线程池，修正response关闭方式。
  *        2022/7/15 根据SonaLint修改
+ *        2022/7/25 fix get/postJSON
+ *        2022/8/17 从LocationScheduleService迁移至pdt项目，并增添外部定制HttpPost对象的请求方法post(HttpPost post)。
  */
 public class HttpClientUtil {
     private static final Logger log = LoggerFactory.getLogger(HttpClientUtil.class);
@@ -55,7 +57,7 @@ public class HttpClientUtil {
     private static final int MAX_SIZE = 50;                     // 连接池最大连接数
     private static final int MAX_PER_ROUTE_SIZE = 50;           // 每个路由默认有多少连接数
     private static final int TIME_OUT_TCP = 5000;               // TCP连接建立时间
-    private static final int TIME_OUT_REQUEST = 5000;           // 获取响应超时
+    private static final int TIME_OUT_REQUEST = 60000;           // 获取响应超时
     private static final int TIME_OUT_GET_CONN_FROM_POOL = 5000;// 从连接池中获取连接超时
 
     private HttpClientUtil() {}
@@ -66,17 +68,10 @@ public class HttpClientUtil {
         // http & https
         try {
             registry = RegistryBuilder.<ConnectionSocketFactory>create()
-                        .register("http", PlainConnectionSocketFactory.INSTANCE)
-                        .register("https", skipValidationHttpsConnectionSocketFactory())
-                        .build();
-        } catch (KeyStoreException e) {
-            //e.printStackTrace();
-            log.error(e.getMessage(), e);
-        } catch (NoSuchAlgorithmException e) {
-            //e.printStackTrace();
-            log.error(e.getMessage(), e);
-        } catch (KeyManagementException e) {
-            //e.printStackTrace();
+                    .register("http", PlainConnectionSocketFactory.INSTANCE)
+                    .register("https", skipValidationHttpsConnectionSocketFactory())
+                    .build();
+        } catch (Exception e) {
             log.error(e.getMessage(), e);
         }
         // 连接池
@@ -93,16 +88,18 @@ public class HttpClientUtil {
         httpClientBuilder.setDefaultRequestConfig(requestConfig);
         // 默认header
         List<Header> defaultHeaders = new ArrayList<>();
-        defaultHeaders.add(new BasicHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.36 Edg/100.0.1185.36"));
+        defaultHeaders.add(
+                new BasicHeader("User-Agent"
+                        , "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.36"));
         httpClientBuilder.setDefaultHeaders(defaultHeaders);
     }
 
-    private static ConnectionSocketFactory skipValidationHttpsConnectionSocketFactory() throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException {
+    private static ConnectionSocketFactory skipValidationHttpsConnectionSocketFactory()
+            throws KeyStoreException, NoSuchAlgorithmException, KeyManagementException {
         SSLContextBuilder sslContextBuilder = new SSLContextBuilder();
         SSLContext sslContext = sslContextBuilder.loadTrustMaterial(null, new TrustStrategy() {
             @Override
             public boolean isTrusted(X509Certificate[] x509Certificates, String s) throws CertificateException {
-                //return false;
                 return true;
             }
         }).build();
@@ -113,6 +110,12 @@ public class HttpClientUtil {
                 , NoopHostnameVerifier.INSTANCE);
     }
 
+    /**
+     * 向指定端点以post方式发送JSON字符串
+     * @param url   服务端点
+     * @param obj   待发送载荷。工具类会将该Object转换成JSON字符串进行发送。
+     * @return      服务返回的字符串
+     */
     public static String postJSON(String url, Object obj) {
         HttpPost httpPost = new HttpPost(url);
         httpPost.addHeader("Content-Type", "application/json; charset=UTF-8");
@@ -125,14 +128,35 @@ public class HttpClientUtil {
         CloseableHttpResponse closeableHttpResponse = null;
         try {
             closeableHttpResponse = closeableHttpClient.execute(httpPost);
-            //return EntityUtils.toString(closeableHttpResponse.getEntity());
             HttpEntity entity = closeableHttpResponse.getEntity();
             String resp = EntityUtils.toString(entity, StandardCharsets.UTF_8);
             EntityUtils.consume(entity);// 确保关闭流
             return resp;
         } catch(Exception e) {
             log.error(e.getMessage(), e);
-            return null;
+            throw new RuntimeException(e.getMessage());
+        } finally {
+            HttpClientUtils.closeQuietly(closeableHttpResponse);
+        }
+    }
+
+    /**
+     * 向指定端点以post方式发送请求。
+     * @param httpPost  HttpClient包中的HttpPost对象。直接开放HttpClient接口提供了更多灵活性，如通过HttpPost对象发送表单内容。
+     * @return          服务返回的字符串
+     */
+    public static String post(HttpPost httpPost) {
+        CloseableHttpClient closeableHttpClient = httpClientBuilder.build();
+        CloseableHttpResponse closeableHttpResponse = null;
+        try {
+            closeableHttpResponse = closeableHttpClient.execute(httpPost);
+            HttpEntity entity = closeableHttpResponse.getEntity();
+            String resp = EntityUtils.toString(entity, StandardCharsets.UTF_8);
+            EntityUtils.consume(entity);// 确保关闭流
+            return resp;
+        } catch(Exception e) {
+            log.error(e.getMessage(), e);
+            throw new RuntimeException(e.getMessage());
         } finally {
             HttpClientUtils.closeQuietly(closeableHttpResponse);
         }
@@ -150,13 +174,18 @@ public class HttpClientUtil {
             return resp;
         } catch (Exception e) {
             log.error(e.getMessage(), e);
-            return null;
+            throw new RuntimeException(e.getMessage());
         } finally {
             HttpClientUtils.closeQuietly(closeableHttpResponse);
         }
     }
 
-    public static JSONObject get2(String url) {
+    /**
+     * 向poc系统发送请求，并返回JSON格式
+     * @param url 请求的地址
+     * @return
+     */
+    public static JSONObject getToJson(String url) {
         HttpGet httpGet = new HttpGet(url);
         CloseableHttpClient closeableHttpClient = httpClientBuilder.build();
         CloseableHttpResponse closeableHttpResponse = null;
@@ -166,13 +195,11 @@ public class HttpClientUtil {
             HttpEntity entity = closeableHttpResponse.getEntity();
             String resp = EntityUtils.toString(entity, StandardCharsets.UTF_8);
             EntityUtils.consume(entity);// 确保流关闭。
-
-            jsonObject = JSON.parseObject(resp + "xx");
-
+            jsonObject =  JSON.parseObject(resp);
             return jsonObject;
         } catch (Exception e) {
             log.error(e.getMessage(), e);
-            throw new RuntimeException("bar");
+            throw new RuntimeException(e.getMessage());
         } finally {
             HttpClientUtils.closeQuietly(closeableHttpResponse);
         }

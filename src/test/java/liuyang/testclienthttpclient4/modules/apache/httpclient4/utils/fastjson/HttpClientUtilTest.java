@@ -28,7 +28,7 @@ public class HttpClientUtilTest {
     void test202206241107() {
         StringBuilder url = new StringBuilder();
         url.append("https://10.10.9.18:3002/requestService/operator/userlogin?udpID=123&Name=hssuser&Password=hssuser&isForceLogin=1");
-        JSONObject jsonObject = HttpClientUtil.get2(url.toString());
+        JSONObject jsonObject = HttpClientUtil.getToJson(url.toString());
         log.info("jsonObject {}", jsonObject);
     }
 
